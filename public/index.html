@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC Cycle Terminal · Dashboard de Régimen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0A0F1A; --panel:#111827; --panel2:#0E1622; --line:#1E2A3D;
+  --txt:#E8ECF3; --dim:#8A97AB; --faint:#5A6578;
+  --bull:#3FD0A6; --bear:#F26D6D; --amber:#F0A93B; --blue:#5B8DEF;
+  --mono:'IBM Plex Mono',ui-monospace,monospace; --disp:'Space Grotesk',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--txt);font-family:var(--mono);font-size:13px;line-height:1.5;padding-bottom:60px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 18px}
+header{border-bottom:1px solid var(--line);background:var(--panel2);position:sticky;top:0;z-index:9}
+.hbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 0}
+.logo{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:.5px}
+.logo span{color:var(--amber)}
+.hprice{font-size:22px;font-weight:600}
+.hchip{font-size:11px;color:var(--dim)}
+.btn{background:var(--amber);color:#141414;border:none;font-family:var(--mono);font-weight:600;
+  font-size:12px;padding:8px 14px;border-radius:6px;cursor:pointer;margin-left:auto}
+.btn:disabled{opacity:.5;cursor:wait}
+.regime{margin:22px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.regime-head{padding:14px 18px;background:var(--panel2);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.regime-head h2{font-family:var(--disp);font-size:14px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)}
+.rgrid{display:grid;grid-template-columns:repeat(4,1fr)}
+.rcell{padding:16px 14px;border-left:1px solid var(--line);opacity:.35;transition:.3s}
+.rcell:first-child{border-left:none}
+.rcell.active{opacity:1;background:linear-gradient(180deg,rgba(240,169,59,.10),transparent)}
+.rcell .rk{font-family:var(--disp);font-weight:700;font-size:15px}
+.rcell .rn{font-size:11px;color:var(--dim);margin-top:2px}
+.rcell.active .rk{color:var(--amber)}
+.scorebars{display:flex;gap:26px;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.sb{flex:1;min-width:220px}
+.sb .lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:5px}
+.track{height:8px;background:var(--panel);border-radius:4px;overflow:hidden}
+.fill{height:100%;width:0%;transition:width .8s}
+.fill.suelo{background:var(--bull)} .fill.techo{background:var(--bear)}
+section{margin-top:30px}
+.shead{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.shead .pn{font-family:var(--disp);font-weight:700;font-size:13px;color:var(--amber)}
+.shead h3{font-family:var(--disp);font-size:16px;font-weight:500}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 15px;position:relative}
+.tile .tl{font-size:11px;color:var(--dim);letter-spacing:.4px}
+.tile .tv{font-size:23px;font-weight:600;margin:4px 0 2px}
+.tile .ts{font-size:10.5px;color:var(--dim)}
+.chip{position:absolute;top:12px;right:12px;font-size:9.5px;font-weight:600;padding:3px 8px;border-radius:20px;letter-spacing:.5px}
+.chip.suelo{background:rgba(63,208,166,.15);color:var(--bull)}
+.chip.techo{background:rgba(242,109,109,.15);color:var(--bear)}
+.chip.neutro{background:rgba(138,151,171,.15);color:var(--dim)}
+.chip.na{background:rgba(91,141,239,.12);color:var(--blue)}
+.chip.down{background:rgba(242,109,109,.15);color:var(--bear)}
+.gauge{margin-top:10px;height:5px;background:linear-gradient(90deg,var(--bull),#8a97ab55,var(--bear));border-radius:3px;position:relative}
+.gauge .pin{position:absolute;top:-4px;width:3px;height:13px;background:#fff;border-radius:2px;transform:translateX(-50%)}
+.gauge .gl{display:flex;justify-content:space-between;font-size:9px;color:var(--faint);margin-top:5px}
+.tile a{color:var(--blue);text-decoration:none;font-size:11px}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.checks{grid-template-columns:1fr}}
+.clist{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.clist h4{font-family:var(--disp);font-size:13px;margin-bottom:10px}
+.clist h4.b{color:var(--bull)} .clist h4.t{color:var(--bear)}
+.ci{display:flex;gap:9px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:11.5px;align-items:baseline}
+.ci:last-child{border:none}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--panel2);border:1.5px solid var(--dim);flex:none;position:relative;top:1px}
+.ci.on .dot{background:currentColor;border-color:currentColor}
+.ci.on.b{color:var(--bull)} .ci.on.t{color:var(--bear)}
+.ci .why{color:var(--dim);margin-left:auto;font-size:10px;text-align:right}
+canvas{width:100%;height:56px;display:block;margin-top:8px}
+footer{margin-top:40px;border-top:1px solid var(--line);padding-top:14px;font-size:10.5px;color:var(--dim)}
+
+/* DIAGNÓSTICO */
+.diag{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.dpill{display:flex;align-items:center;gap:6px;font-size:10.5px;padding:4px 9px;border-radius:20px;background:var(--panel2)}
+.ddot{width:7px;height:7px;border-radius:50%}
+.ddot.ok{background:var(--bull)} .ddot.bad{background:var(--bear)}
+</style>
+</head>
+<body>
+
+<header><div class="wrap hbar">
+  <div class="logo">BTC<span>·</span>CYCLE TERMINAL</div>
+  <div class="hprice" id="px">—</div>
+  <div class="hchip" id="pxchg">cargando…</div>
+  <div class="hchip" id="upd"></div>
+  <button class="btn" id="refresh">↻ Actualizar</button>
+</div></header>
+
+<div class="wrap">
+
+<div class="diag" id="diag"><span class="note" style="color:var(--dim)">Estado de fuentes:</span></div>
+
+<div class="regime">
+  <div class="regime-head">
+    <h2>Régimen de mercado detectado</h2>
+    <div class="note" id="rnote" style="color:var(--dim)">calculando…</div>
+  </div>
+  <div class="rgrid">
+    <div class="rcell" id="R1"><div class="rk">R1</div><div class="rn">Capitulación / Acumulación</div></div>
+    <div class="rcell" id="R2"><div class="rk">R2</div><div class="rn">Alcista · Alta liquidez</div></div>
+    <div class="rcell" id="R3"><div class="rk">R3</div><div class="rn">Distribución / Sobre-apalancado</div></div>
+    <div class="rcell" id="R4"><div class="rk">R4</div><div class="rn">Bearish / Contracción</div></div>
+  </div>
+  <div class="scorebars">
+    <div class="sb"><div class="lbl"><span>Señales de SUELO</span><span id="sSueloN">0 / 8</span></div>
+      <div class="track"><div class="fill suelo" id="sSuelo"></div></div></div>
+    <div class="sb"><div class="lbl"><span>Señales de TECHO</span><span id="sTechoN">0 / 8</span></div>
+      <div class="track"><div class="fill techo" id="sTecho"></div></div></div>
+  </div>
+</div>
+
+<section>
+  <div class="shead"><div class="pn">PILAR 1</div><h3>Macro global y liquidez (FRED oficial)</h3></div>
+  <div class="grid">
+    <div class="tile"><span class="chip neutro" id="c_dxy">…</span><div class="tl">Índice ponderado del dólar (proxy DXY)</div>
+      <div class="tv" id="v_dxy">—</div><div class="ts">Fed DTWEXBGS · techo mayor ≈ suelo de BTC</div></div>
+    <div class="tile"><span class="chip neutro" id="c_10y">…</span><div class="tl">US10Y · Bono 10 años</div>
+      <div class="tv" id="v_10y">—</div><div class="ts">&lt;3,5% cayendo = rotación a riesgo · &gt;4,5% = drenaje</div></div>
+    <div class="tile"><span class="chip neutro" id="c_ffr">…</span><div class="tl">FFR · Tasa efectiva Fed</div>
+      <div class="tv" id="v_ffr">—</div><div class="ts">Tasa real (FFR−CPI) &lt;0,5% = combustible</div></div>
+    <div class="tile"><span class="chip na">LINK</span><div class="tl">Net Liquidity Index + ETF Flows</div>
+      <div class="tv" style="font-size:13px;margin-top:8px">
+        <a href="https://fred.stlouisfed.org/graph/?g=1t6Yp&id=WALCL" target="_blank">Fed WALCL/TGA/RRP</a> ·
+        <a href="https://farside.co.uk/btc/" target="_blank">ETF Flows</a> ·
+        <a href="https://www.coinglass.com/pro/i/coinbase-premium-index" target="_blank">Coinbase Premium</a></div>
+      <div class="ts">Sin API pública gratuita confiable — revisar en la lectura semanal</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><div class="pn">PILAR 2</div><h3>Valoración on-chain</h3></div>
+  <div class="grid">
+    <div class="tile"><span class="chip neutro" id="c_mvrv">…</span><div class="tl">MVRV Ratio</div>
+      <div class="tv" id="v_mvrv">—</div><div class="ts">MC / Realized Cap · &lt;1 capitulación · &gt;3 euforia</div>
+      <div class="gauge"><div class="pin" id="p_mvrv"></div><div class="gl"><span>0.7</span><span>3.5</span></div></div></div>
+    <div class="tile"><span class="chip neutro" id="c_z">…</span><div class="tl">MVRV Z-Score (aprox. 2016→)</div>
+      <div class="tv" id="v_z">—</div><div class="ts">&lt;0 suelo · &gt;3,5 techo terminal</div>
+      <div class="gauge"><div class="pin" id="p_z"></div><div class="gl"><span>-0.5</span><span>4</span></div></div></div>
+    <div class="tile"><span class="chip neutro" id="c_nupl">…</span><div class="tl">NUPL</div>
+      <div class="tv" id="v_nupl">—</div><div class="ts" id="t_nupl">(MC−RC)/MC · fase psicológica</div>
+      <div class="gauge"><div class="pin" id="p_nupl"></div><div class="gl"><span>-0.2</span><span>0.85</span></div></div></div>
+    <div class="tile"><span class="chip neutro" id="c_rp">…</span><div class="tl">Precio vs Realized Price</div>
+      <div class="tv" id="v_rp">—</div><div class="ts" id="t_rp">Precio bajo RP = capitulación histórica</div></div>
+    <div class="tile"><span class="chip neutro" id="c_mayer">…</span><div class="tl">Mayer Multiple</div>
+      <div class="tv" id="v_mayer">—</div><div class="ts" id="t_mayer">Precio / SMA200d · &lt;0,8 valor · &gt;2,4 techo</div>
+      <div class="gauge"><div class="pin" id="p_mayer"></div><div class="gl"><span>0.6</span><span>2.6</span></div></div>
+      <canvas id="spark" width="600" height="112"></canvas></div>
+    <div class="tile"><span class="chip neutro" id="c_wma">…</span><div class="tl">Distancia a la 200 WMA</div>
+      <div class="tv" id="v_wma">—</div><div class="ts" id="t_wma">La 200 semanal marcó el piso de todos los ciclos</div></div>
+    <div class="tile"><span class="chip neutro" id="c_rsi">…</span><div class="tl">RSI Semanal (14)</div>
+      <div class="tv" id="v_rsi">—</div><div class="ts">&lt;35 zona de suelos · &gt;80 zona de techos</div>
+      <div class="gauge"><div class="pin" id="p_rsi"></div><div class="gl"><span>25</span><span>85</span></div></div></div>
+    <div class="tile"><span class="chip neutro" id="c_puell">…</span><div class="tl">Puell Multiple</div>
+      <div class="tv" id="v_puell">—</div><div class="ts">Ingresos mineros / SMA365 · &lt;0,5 capitulación · &gt;2,2 techo</div>
+      <div class="gauge"><div class="pin" id="p_puell"></div><div class="gl"><span>0.3</span><span>2.5</span></div></div></div>
+    <div class="tile"><span class="chip neutro" id="c_hash">…</span><div class="tl">Hash Ribbon (SMA30 vs SMA60)</div>
+      <div class="tv" id="v_hash" style="font-size:16px">—</div><div class="ts" id="t_hash">Cruce alcista tras capitulación = señal de compra histórica</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><div class="pn">PILAR 3</div><h3>Derivados y microestructura</h3></div>
+  <div class="grid">
+    <div class="tile"><span class="chip neutro" id="c_fund">…</span><div class="tl">Funding Rate (Binance perp)</div>
+      <div class="tv" id="v_fund">—</div><div class="ts">&gt;+0,05%/8h euforia · negativo sostenido = base de squeeze</div></div>
+    <div class="tile"><span class="chip neutro" id="c_oi">…</span><div class="tl">Open Interest BTC (Binance)</div>
+      <div class="tv" id="v_oi">—</div><div class="ts" id="t_oi">OI/MC &gt; 1,2% (Binance) ≈ 3% global = sobreapalancado</div></div>
+    <div class="tile"><span class="chip neutro" id="c_dvol">…</span><div class="tl">DVOL · Volatilidad implícita</div>
+      <div class="tv" id="v_dvol">—</div><div class="ts">&lt;40 complacencia · &gt;90 pánico = suelo</div>
+      <div class="gauge"><div class="pin" id="p_dvol"></div><div class="gl"><span>30</span><span>100</span></div></div></div>
+    <div class="tile"><span class="chip neutro" id="c_pc">…</span><div class="tl">Put/Call OI (Deribit)</div>
+      <div class="tv" id="v_pc">—</div><div class="ts">&lt;0,4 complacencia · &gt;1,0 miedo extremo</div></div>
+    <div class="tile"><span class="chip neutro" id="c_fg">…</span><div class="tl">Fear &amp; Greed Index</div>
+      <div class="tv" id="v_fg">—</div><div class="ts" id="t_fg">&lt;20 miedo extremo · &gt;85 codicia extrema</div>
+      <div class="gauge"><div class="pin" id="p_fg"></div><div class="gl"><span>0</span><span>100</span></div></div></div>
+    <div class="tile"><span class="chip na">LINK</span><div class="tl">Mapa de liquidaciones</div>
+      <div class="tv" style="font-size:13px;margin-top:8px">
+        <a href="https://www.coinglass.com/LiquidationData" target="_blank">Coinglass Liquidation Map</a></div>
+      <div class="ts">Requiere API paga para automatizar — revisión visual semanal</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><div class="pn">ALERTAS</div><h3>Checklist de ciclo</h3></div>
+  <div class="checks">
+    <div class="clist"><h4 class="b">▼ Señales de SUELO macro</h4><div id="listSuelo"></div></div>
+    <div class="clist"><h4 class="t">▲ Señales de TECHO parabólico</h4><div id="listTecho"></div></div>
+  </div>
+</section>
+
+<footer class="wrap" style="padding-left:0;padding-right:0">
+  Todas las fuentes se consultan desde el servidor (función serverless de Vercel), no desde tu navegador —
+  por eso no hay bloqueos de CORS. Binance (precio, medias, funding, OI) · Coin Metrics Community (on-chain) ·
+  Deribit (DVOL, Put/Call) · Alternative.me (Fear &amp; Greed) · FRED / Reserva Federal (US10Y, FFR, índice del dólar).
+  Respuesta cacheada 30 min. MVRV-Z aproximado (ventana 2016→hoy). Marco analítico personal — no es asesoramiento financiero.
+</footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=(n,d=0)=>n==null?"—":n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
+function setChip(id,st){const c=$(id);if(!c)return;c.className='chip '+st;
+  c.textContent=st==='suelo'?'SUELO':st==='techo'?'TECHO':st==='na'?'LINK':st==='down'?'SIN DATO':'NEUTRO';}
+function pin(id,val,min,max){const p=$(id);if(val==null||!p)return;
+  p.style.left=Math.max(0,Math.min(100,(val-min)/(max-min)*100))+'%';}
+
+function renderDiag(sources){
+  const names={market:'Binance',futures:'Futuros',onchain:'On-chain',derivs:'Deribit',fng:'Fear&Greed',macro:'FRED'};
+  const el=$('diag');el.innerHTML='<span style="color:var(--dim);font-size:10.5px">Estado de fuentes:</span>'+
+    Object.entries(sources).map(([k,v])=>{
+      const ok=v==='ok';
+      return `<span class="dpill"><span class="ddot ${ok?'ok':'bad'}"></span>${names[k]||k}${ok?'':' — '+v}</span>`;
+    }).join('');
+}
+
+function paintSpark(spark){
+  if(!spark)return;
+  const cv=$('spark'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,cs=spark.cs,smas=spark.smas;
+  const all=cs.concat(smas.filter(x=>x)),mn=Math.min(...all),mx=Math.max(...all);
+  const y=v=>H-6-(v-mn)/(mx-mn)*(H-12), x=i=>i/(cs.length-1)*W;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='#F0A93B';ctx.lineWidth=2;ctx.beginPath();
+  smas.forEach((v,i)=>{if(v==null)return;i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v));});ctx.stroke();
+  ctx.strokeStyle='#E8ECF3';ctx.lineWidth=2;ctx.beginPath();
+  cs.forEach((v,i)=>i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v)));ctx.stroke();
+}
+
+function evalAll(s){
+  const S=[
+    ['MVRV Z-Score < 0',s.z!=null&&s.z<0,s.z?.toFixed(2)],
+    ['NUPL < 0 (Capitulación)',s.nupl!=null&&s.nupl<0,s.nupl?.toFixed(2)],
+    ['Mayer Multiple < 0,8',s.mayer!=null&&s.mayer<0.8,s.mayer?.toFixed(2)],
+    ['Precio < Realized Price',s.rpDist!=null&&s.rpDist<0,s.rpDist!=null?s.rpDist.toFixed(1)+'%':null],
+    ['Puell Multiple < 0,5',s.puell!=null&&s.puell<0.5,s.puell?.toFixed(2)],
+    ['Hash Ribbon: cruce de recuperación',s.hashState==='cross',s.hashState],
+    ['Funding negativo',s.fund!=null&&s.fund<0,s.fund!=null?s.fund.toFixed(4)+'%':null],
+    ['Fear & Greed < 20',s.fg!=null&&s.fg<20,s.fg],
+  ];
+  const T=[
+    ['MVRV Z-Score > 3,5',s.z!=null&&s.z>3.5,s.z?.toFixed(2)],
+    ['NUPL > 0,75 (Euforia)',s.nupl!=null&&s.nupl>0.75,s.nupl?.toFixed(2)],
+    ['Mayer Multiple > 2,4',s.mayer!=null&&s.mayer>2.4,s.mayer?.toFixed(2)],
+    ['Puell Multiple > 2,2',s.puell!=null&&s.puell>2.2,s.puell?.toFixed(2)],
+    ['Funding > +0,05%/8h',s.fund!=null&&s.fund>0.05,s.fund!=null?s.fund.toFixed(4)+'%':null],
+    ['OI/MC Binance > 1,2%',s.oiPct!=null&&s.oiPct>1.2,s.oiPct?.toFixed(2)+'%'],
+    ['RSI semanal > 80',s.rsi!=null&&s.rsi>80,s.rsi?.toFixed(1)],
+    ['Fear & Greed > 85',s.fg!=null&&s.fg>85,s.fg],
+  ];
+  const render=(list,el,cls)=>{
+    $(el).innerHTML=list.map(([n,on,d])=>
+      `<div class="ci ${on?'on':''} ${cls}"><div class="dot"></div><span>${n}</span>
+       <span class="why">${d??'sin dato'}</span></div>`).join('');
+    return list.filter(x=>x[1]).length;
+  };
+  const ns=render(S,'listSuelo','b'), nt=render(T,'listTecho','t');
+  $('sSuelo').style.width=(ns/S.length*100)+'%';$('sSueloN').textContent=ns+' / '+S.length;
+  $('sTecho').style.width=(nt/T.length*100)+'%';$('sTechoN').textContent=nt+' / '+T.length;
+  ['R1','R2','R3','R4'].forEach(r=>$(r).classList.remove('active'));
+  let reg='R2',note='';
+  const trendUp=s.mayer!=null&&s.mayer>1;
+  if(ns>=4){reg='R1';note=`${ns} señales de suelo activas → acumulación macro.`;}
+  else if(nt>=4){reg='R3';note=`${nt} señales de techo activas → distribución obligatoria.`;}
+  else if(trendUp&&s.nupl>0.25){reg='R2';note='Tendencia sobre SMA200 con NUPL constructivo.';}
+  else if(!trendUp){reg=ns>=2?'R1':'R4';note=ns>=2?'Bajo SMA200 con señales de suelo apareciendo → transición R4→R1.':'Bajo SMA200 sin señales de suelo suficientes → contracción.';}
+  else{note='Régimen mixto — mantener postura previa.';}
+  $(reg).classList.add('active');
+  $('rnote').textContent=note+' (confirmar 4 semanas + macro antes de actuar)';
+}
+
+async function loadAll(){
+  $('refresh').disabled=true;
+  try{
+    const r=await fetch('/api/data');
+    const d=await r.json();
+    renderDiag(d.sources);
+
+    const s={};
+    if(d.market){
+      s.price=d.market.price; s.mayer=d.market.mayer; s.rsi=d.market.rsi; s.wmaDist=d.market.wmaDist;
+      $('px').textContent='$'+fmt(d.market.price);
+      $('pxchg').textContent=(d.market.chg24h>=0?'+':'')+d.market.chg24h.toFixed(2)+'% 24h';
+      $('pxchg').style.color=d.market.chg24h>=0?'var(--bull)':'var(--bear)';
+      $('v_mayer').textContent=d.market.mayer.toFixed(2);
+      $('t_mayer').textContent='SMA200d: $'+fmt(d.market.sma200);
+      setChip('c_mayer',d.market.mayer<0.8?'suelo':d.market.mayer>2.4?'techo':'neutro');
+      pin('p_mayer',d.market.mayer,0.6,2.6);
+      $('v_wma').textContent=(d.market.wmaDist>=0?'+':'')+d.market.wmaDist.toFixed(1)+'%';
+      $('t_wma').textContent='200 WMA ≈ $'+fmt(d.market.wma200);
+      setChip('c_wma',d.market.wmaDist<10?'suelo':d.market.wmaDist>200?'techo':'neutro');
+      $('v_rsi').textContent=d.market.rsi.toFixed(1);
+      setChip('c_rsi',d.market.rsi<35?'suelo':d.market.rsi>80?'techo':'neutro');
+      pin('p_rsi',d.market.rsi,25,85);
+      paintSpark(d.market.spark);
+    } else { ['c_mayer','c_wma','c_rsi'].forEach(id=>setChip(id,'down')); }
+
+    if(d.futures){
+      s.fund=d.futures.fundingPct; s.oiPct=d.futures.oiPctOfMc;
+      $('v_fund').textContent=(d.futures.fundingPct>=0?'+':'')+d.futures.fundingPct.toFixed(4)+'% /8h';
+      setChip('c_fund',d.futures.fundingPct<0?'suelo':d.futures.fundingPct>0.05?'techo':'neutro');
+      $('v_oi').textContent=fmt(d.futures.oiBtc,0)+' BTC';
+      $('t_oi').textContent='≈ $'+fmt(d.futures.oiUsd/1e9,2)+'B · OI/MC: '+d.futures.oiPctOfMc.toFixed(2)+'%';
+      setChip('c_oi',d.futures.oiPctOfMc>1.2?'techo':'neutro');
+    } else { ['c_fund','c_oi'].forEach(id=>setChip(id,'down')); }
+
+    if(d.onchain){
+      s.mvrv=d.onchain.mvrv; s.z=d.onchain.z; s.nupl=d.onchain.nupl; s.puell=d.onchain.puell; s.hashState=d.onchain.hashState;
+      $('v_mvrv').textContent=d.onchain.mvrv.toFixed(2);
+      setChip('c_mvrv',d.onchain.mvrv<1?'suelo':d.onchain.mvrv>3?'techo':'neutro');
+      pin('p_mvrv',d.onchain.mvrv,0.7,3.5);
+      $('v_z').textContent=d.onchain.z.toFixed(2);
+      setChip('c_z',d.onchain.z<0?'suelo':d.onchain.z>3.5?'techo':'neutro');
+      pin('p_z',d.onchain.z,-0.5,4);
+      const fases=[[0,'Capitulación'],[0.25,'Esperanza'],[0.5,'Optimismo'],[0.75,'Creencia/Ansiedad'],[1,'Euforia']];
+      let fase='Euforia';for(const [th,nm] of fases){if(d.onchain.nupl<th){fase=nm;break;}}
+      $('v_nupl').textContent=d.onchain.nupl.toFixed(2);
+      $('t_nupl').textContent='Fase: '+fase;
+      setChip('c_nupl',d.onchain.nupl<0?'suelo':d.onchain.nupl>0.75?'techo':'neutro');
+      pin('p_nupl',d.onchain.nupl,-0.2,0.85);
+      const dist=s.price?(s.price/d.onchain.realizedPrice-1)*100:null;
+      s.rpDist=dist;
+      $('v_rp').textContent='$'+fmt(d.onchain.realizedPrice);
+      $('t_rp').textContent=dist!=null?('Precio '+(dist>=0?'+':'')+dist.toFixed(1)+'% sobre el RP'):'';
+      setChip('c_rp',dist!=null&&dist<0?'suelo':'neutro');
+      $('v_puell').textContent=d.onchain.puell.toFixed(2);
+      setChip('c_puell',d.onchain.puell<0.5?'suelo':d.onchain.puell>2.2?'techo':'neutro');
+      pin('p_puell',d.onchain.puell,0.3,2.5);
+      const crossUp=d.onchain.hashState==='cross',above=d.onchain.hashState!=='cap';
+      $('v_hash').textContent=crossUp?'✚ CRUCE ALCISTA (señal)':above?'SMA30 > SMA60 · sana':'CAPITULACIÓN de mineros';
+      setChip('c_hash',crossUp||!above?'suelo':'neutro');
+    } else { ['c_mvrv','c_z','c_nupl','c_rp','c_puell','c_hash'].forEach(id=>setChip(id,'down')); }
+
+    if(d.derivs){
+      s.dvol=d.derivs.dvol;
+      $('v_dvol').textContent=d.derivs.dvol?d.derivs.dvol.toFixed(1):'—';
+      setChip('c_dvol',d.derivs.dvol>90?'suelo':'neutro');
+      pin('p_dvol',d.derivs.dvol,30,100);
+      $('v_pc').textContent=d.derivs.putCall?d.derivs.putCall.toFixed(2):'—';
+      setChip('c_pc',d.derivs.putCall>1?'suelo':d.derivs.putCall<0.4?'techo':'neutro');
+    } else { ['c_dvol','c_pc'].forEach(id=>setChip(id,'down')); }
+
+    if(d.fng){
+      s.fg=d.fng.value;
+      $('v_fg').textContent=d.fng.value;
+      $('t_fg').textContent='Lectura: '+d.fng.label;
+      setChip('c_fg',d.fng.value<20?'suelo':d.fng.value>85?'techo':'neutro');
+      pin('p_fg',d.fng.value,0,100);
+    } else { setChip('c_fg','down'); }
+
+    if(d.macro){
+      if(d.macro.dxyProxy!=null){$('v_dxy').textContent=d.macro.dxyProxy.toFixed(1);setChip('c_dxy','neutro');}
+      if(d.macro.us10y!=null){$('v_10y').textContent=d.macro.us10y.toFixed(2)+'%';
+        setChip('c_10y',d.macro.us10y<3.5?'suelo':d.macro.us10y>4.5?'techo':'neutro');}
+      if(d.macro.ffr!=null){$('v_ffr').textContent=d.macro.ffr.toFixed(2)+'%';setChip('c_ffr','neutro');}
+    } else { ['c_dxy','c_10y','c_ffr'].forEach(id=>setChip(id,'down')); }
+
+    evalAll(s);
+    $('upd').textContent='actualizado '+new Date(d.updatedAt).toLocaleString('es-AR');
+  }catch(e){
+    $('upd').textContent='Error de conexión con /api/data — revisá el despliegue en Vercel.';
+  }
+  $('refresh').disabled=false;
+}
+$('refresh').onclick=loadAll;
+loadAll();
+setInterval(loadAll, 3*3600*1000);
+</script>
+</body>
+</html>
