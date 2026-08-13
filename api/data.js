@@ -2,6 +2,13 @@
 // Por eso no hay problema de CORS: cada fuente se llama desde acá, y el
 // frontend solo le pide datos a /api/data (mismo dominio).
 
+// MVRV, Z-Score, NUPL y Realized Price quedaron detrás de planes pagos en
+// todos los proveedores con API (Coin Metrics, bitcoin-data.com, CoinGlass) —
+// requieren indexar el Realized Cap de toda la blockchain. Mientras no se
+// pague uno, se usan estos valores cargados a mano desde un gráfico público
+// (CoinGlass / LookIntoBitcoin), editando este archivo cada tanto.
+const manualOnchain = require("./manual-onchain.json");
+
 const J = async (url, opts) => {
   const r = await fetch(url, { ...opts, headers: { "User-Agent": "btc-dashboard/1.0", ...(opts?.headers||{}) } });
   if (!r.ok) throw new Error(`${url} -> HTTP ${r.status}`);
@@ -132,7 +139,17 @@ async function getCoinMetrics() {
     out.z = diffs[ip] / sd;
     out.realizedPrice = RC[ip] / SP[ip];
   } catch (e) {
-    out.paywalled = ["mvrv", "z", "nupl", "realizedPrice"];
+    const hasManual = ["mvrv", "z", "nupl", "realizedPrice"].some((k) => manualOnchain[k] != null);
+    if (hasManual) {
+      out.mvrv = manualOnchain.mvrv;
+      out.z = manualOnchain.z;
+      out.nupl = manualOnchain.nupl;
+      out.realizedPrice = manualOnchain.realizedPrice;
+      out.manualDate = manualOnchain.updatedAt;
+      out.manualSource = manualOnchain.source;
+    } else {
+      out.paywalled = ["mvrv", "z", "nupl", "realizedPrice"];
+    }
   }
 
   return out;
@@ -196,6 +213,8 @@ module.exports = async function handler(req, res) {
   }
   if (out.sources.onchain === "ok" && out.onchain?.paywalled?.length) {
     out.sources.onchain = "parcial: MVRV/Z-Score/NUPL/Realized Price requieren plan pago de Coin Metrics";
+  } else if (out.sources.onchain === "ok" && out.onchain?.manualDate) {
+    out.sources.onchain = `parcial: MVRV/Z-Score/NUPL/Realized Price son manuales (${out.onchain.manualDate})`;
   }
   await safe("derivs", getDeribit);
   await safe("fng", getFearGreed);
