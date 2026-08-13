@@ -120,39 +120,17 @@ async function getCoinMetrics() {
   const crossUp = above && h30p <= h60p;
   const hashState = crossUp ? "cross" : above ? "up" : "cap";
 
-  const out = { hashState, hashrate: HR[i], mvrv: null, z: null, nupl: null, realizedPrice: null, puell: null, paywalled: [] };
+  return { hashState, hashrate: HR[i], mvrv: null, z: null, nupl: null, realizedPrice: null, puell: null, paywalled: [] };
+}
 
-  try {
-    const paidUrl =
-      "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc" +
-      "&metrics=CapRealUSD&frequency=1d&start_time=2016-01-01&page_size=10000";
-    const jp = await J(paidUrl);
-    const dp = jp.data || [];
-    const RC = dp.map((r) => +r.CapRealUSD);
-    const ip = dp.length - 1;
-
-    out.mvrv = MC[i] / RC[ip];
-    out.nupl = (MC[i] - RC[ip]) / MC[i];
-    const diffs = MC.map((m, k) => m - RC[k]);
-    const mean = MC.reduce((a, b) => a + b, 0) / MC.length;
-    const sd = Math.sqrt(MC.reduce((a, b) => a + (b - mean) ** 2, 0) / MC.length);
-    out.z = diffs[ip] / sd;
-    out.realizedPrice = RC[ip] / SP[ip];
-  } catch (e) {
-    const hasManual = ["mvrv", "z", "nupl", "realizedPrice"].some((k) => manualOnchain[k] != null);
-    if (hasManual) {
-      out.mvrv = manualOnchain.mvrv;
-      out.z = manualOnchain.z;
-      out.nupl = manualOnchain.nupl;
-      out.realizedPrice = manualOnchain.realizedPrice;
-      out.manualDate = manualOnchain.updatedAt;
-      out.manualSource = manualOnchain.source;
-    } else {
-      out.paywalled = ["mvrv", "z", "nupl", "realizedPrice"];
-    }
-  }
-
-  return out;
+// MVRV/Z-Score/NUPL/Realized Price: CapRealUSD de Coin Metrics quedó pago,
+// así que se usa bitcoin-data.com (gratis pero limitado a 10 req/hora,
+// 15/día) a través de /api/onchain-free, que cachea 24h en el edge de
+// Vercel para no gastar esa cuota en cada carga del dashboard.
+async function getFreeOnchainFallback(baseUrl) {
+  const j = await J(`${baseUrl}/api/onchain-free`);
+  if (j.error || j.mvrv == null) throw new Error(j.error || "sin datos");
+  return j;
 }
 
 async function getDeribit() {
@@ -211,8 +189,31 @@ module.exports = async function handler(req, res) {
   if (out.onchain && out.market?.spark) {
     try { out.onchain.puell = computePuell(out.market.spark); } catch (e) {}
   }
+  if (out.onchain) {
+    const baseUrl = `https://${req.headers.host}`;
+    try {
+      const free = await getFreeOnchainFallback(baseUrl);
+      out.onchain.mvrv = free.mvrv;
+      out.onchain.z = free.z;
+      out.onchain.nupl = free.nupl;
+      out.onchain.realizedPrice = free.realizedPrice;
+      out.onchain.freeSource = "bitcoin-data.com";
+    } catch (e) {
+      const hasManual = ["mvrv", "z", "nupl", "realizedPrice"].some((k) => manualOnchain[k] != null);
+      if (hasManual) {
+        out.onchain.mvrv = manualOnchain.mvrv;
+        out.onchain.z = manualOnchain.z;
+        out.onchain.nupl = manualOnchain.nupl;
+        out.onchain.realizedPrice = manualOnchain.realizedPrice;
+        out.onchain.manualDate = manualOnchain.updatedAt;
+        out.onchain.manualSource = manualOnchain.source;
+      } else {
+        out.onchain.paywalled = ["mvrv", "z", "nupl", "realizedPrice"];
+      }
+    }
+  }
   if (out.sources.onchain === "ok" && out.onchain?.paywalled?.length) {
-    out.sources.onchain = "parcial: MVRV/Z-Score/NUPL/Realized Price requieren plan pago de Coin Metrics";
+    out.sources.onchain = "parcial: MVRV/Z-Score/NUPL/Realized Price sin datos (fuente gratuita agotada)";
   } else if (out.sources.onchain === "ok" && out.onchain?.manualDate) {
     out.sources.onchain = `parcial: MVRV/Z-Score/NUPL/Realized Price son manuales (${out.onchain.manualDate})`;
   }
