@@ -64,7 +64,8 @@ exacto (no una tarjeta vacía sin explicación).
 |---|---|---|
 | Precio, Mayer, 200WMA, RSI semanal | ✅ | Binance |
 | Funding, Open Interest | ✅ | Binance Futures |
-| MVRV, Z-Score, NUPL, Realized Price, Puell, Hash Ribbon | ✅ | Coin Metrics |
+| Puell Multiple, Hash Ribbon | ✅ | Coin Metrics (hash) + esquema de halving público |
+| MVRV, Z-Score, NUPL, Realized Price | ✅ (con límite) | bitcoin-data.com, cacheado 24h — si se agota la cuota gratuita, cae a `api/manual-onchain.json` |
 | DVOL, Put/Call | ✅ | Deribit |
 | Fear & Greed | ✅ | Alternative.me |
 | US10Y, FFR, índice del dólar (proxy DXY) | ✅ | FRED (Reserva Federal) |
