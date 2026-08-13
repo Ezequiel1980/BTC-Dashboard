@@ -60,9 +60,41 @@ async function getFutures(price) {
   return { fundingPct, oiBtc, oiUsd, oiPctOfMc };
 }
 
+// Recompensa por bloque: calendario de halvings, público y determinístico
+// (no depende de ningún proveedor). Próximo halving ~abril 2028, estimado.
+const HALVINGS = [
+  { date: new Date("2009-01-03"), reward: 50 },
+  { date: new Date("2012-11-28"), reward: 25 },
+  { date: new Date("2016-07-09"), reward: 12.5 },
+  { date: new Date("2020-05-11"), reward: 6.25 },
+  { date: new Date("2024-04-20"), reward: 3.125 },
+  { date: new Date("2028-04-01"), reward: 1.5625 },
+];
+const rewardAt = (date) => {
+  let r = 50;
+  for (const h of HALVINGS) if (date >= h.date) r = h.reward;
+  return r;
+};
+
+// Puell Multiple original (David Puell): valor de la emisión diaria vs su
+// media de 365 días. La emisión (bloques/día × recompensa) es pública y
+// determinística, y el precio ya viene de Binance — no requiere Coin Metrics.
+function computePuell(spark) {
+  const cs = spark.cs;
+  const n = cs.length;
+  const today = new Date();
+  const issuance = cs.map((price, idx) => {
+    const daysAgo = n - 1 - idx;
+    const d = new Date(today.getTime() - daysAgo * 86400000);
+    return 144 * rewardAt(d) * price; // ~144 bloques/día promedio
+  });
+  const avg365 = issuance.reduce((a, b) => a + b, 0) / issuance.length;
+  return issuance.at(-1) / avg365;
+}
+
 async function getCoinMetrics() {
-  // CapRealUSD y RevUSD quedaron detrás del plan pago de Coin Metrics — el resto
-  // sigue gratis. Se piden por separado para que un metric pago no tumbe los demás.
+  // CapRealUSD quedó detrás del plan pago de Coin Metrics — el resto sigue
+  // gratis. Se pide por separado para que ese metric pago no tumbe los demás.
   const free = "CapMrktCurUSD,HashRate,SplyCur";
   const freeUrl =
     "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc" +
@@ -86,11 +118,10 @@ async function getCoinMetrics() {
   try {
     const paidUrl =
       "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc" +
-      "&metrics=CapRealUSD,RevUSD&frequency=1d&start_time=2016-01-01&page_size=10000";
+      "&metrics=CapRealUSD&frequency=1d&start_time=2016-01-01&page_size=10000";
     const jp = await J(paidUrl);
     const dp = jp.data || [];
     const RC = dp.map((r) => +r.CapRealUSD);
-    const RV = dp.map((r) => +r.RevUSD);
     const ip = dp.length - 1;
 
     out.mvrv = MC[i] / RC[ip];
@@ -100,11 +131,8 @@ async function getCoinMetrics() {
     const sd = Math.sqrt(MC.reduce((a, b) => a + (b - mean) ** 2, 0) / MC.length);
     out.z = diffs[ip] / sd;
     out.realizedPrice = RC[ip] / SP[ip];
-
-    const s365 = sma(RV, 365);
-    out.puell = RV[ip] / s365;
   } catch (e) {
-    out.paywalled = ["mvrv", "z", "nupl", "realizedPrice", "puell"];
+    out.paywalled = ["mvrv", "z", "nupl", "realizedPrice"];
   }
 
   return out;
@@ -163,8 +191,11 @@ module.exports = async function handler(req, res) {
   await safe("market", getBinance);
   await safe("futures", () => getFutures(out.market?.price));
   await safe("onchain", getCoinMetrics);
+  if (out.onchain && out.market?.spark) {
+    try { out.onchain.puell = computePuell(out.market.spark); } catch (e) {}
+  }
   if (out.sources.onchain === "ok" && out.onchain?.paywalled?.length) {
-    out.sources.onchain = "parcial: MVRV/Z/NUPL/Realized Price/Puell requieren plan pago de Coin Metrics";
+    out.sources.onchain = "parcial: MVRV/Z-Score/NUPL/Realized Price requieren plan pago de Coin Metrics";
   }
   await safe("derivs", getDeribit);
   await safe("fng", getFearGreed);
