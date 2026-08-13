@@ -310,26 +310,36 @@ async function loadAll(){
 
     if(d.onchain){
       s.mvrv=d.onchain.mvrv; s.z=d.onchain.z; s.nupl=d.onchain.nupl; s.puell=d.onchain.puell; s.hashState=d.onchain.hashState;
-      $('v_mvrv').textContent=d.onchain.mvrv.toFixed(2);
-      setChip('c_mvrv',d.onchain.mvrv<1?'suelo':d.onchain.mvrv>3?'techo':'neutro');
-      pin('p_mvrv',d.onchain.mvrv,0.7,3.5);
-      $('v_z').textContent=d.onchain.z.toFixed(2);
-      setChip('c_z',d.onchain.z<0?'suelo':d.onchain.z>3.5?'techo':'neutro');
-      pin('p_z',d.onchain.z,-0.5,4);
-      const fases=[[0,'Capitulación'],[0.25,'Esperanza'],[0.5,'Optimismo'],[0.75,'Creencia/Ansiedad'],[1,'Euforia']];
-      let fase='Euforia';for(const [th,nm] of fases){if(d.onchain.nupl<th){fase=nm;break;}}
-      $('v_nupl').textContent=d.onchain.nupl.toFixed(2);
-      $('t_nupl').textContent='Fase: '+fase;
-      setChip('c_nupl',d.onchain.nupl<0?'suelo':d.onchain.nupl>0.75?'techo':'neutro');
-      pin('p_nupl',d.onchain.nupl,-0.2,0.85);
-      const dist=s.price?(s.price/d.onchain.realizedPrice-1)*100:null;
-      s.rpDist=dist;
-      $('v_rp').textContent='$'+fmt(d.onchain.realizedPrice);
-      $('t_rp').textContent=dist!=null?('Precio '+(dist>=0?'+':'')+dist.toFixed(1)+'% sobre el RP'):'';
-      setChip('c_rp',dist!=null&&dist<0?'suelo':'neutro');
-      $('v_puell').textContent=d.onchain.puell.toFixed(2);
-      setChip('c_puell',d.onchain.puell<0.5?'suelo':d.onchain.puell>2.2?'techo':'neutro');
-      pin('p_puell',d.onchain.puell,0.3,2.5);
+      if(d.onchain.mvrv!=null){
+        $('v_mvrv').textContent=d.onchain.mvrv.toFixed(2);
+        setChip('c_mvrv',d.onchain.mvrv<1?'suelo':d.onchain.mvrv>3?'techo':'neutro');
+        pin('p_mvrv',d.onchain.mvrv,0.7,3.5);
+      } else { $('v_mvrv').textContent='—'; setChip('c_mvrv','down'); }
+      if(d.onchain.z!=null){
+        $('v_z').textContent=d.onchain.z.toFixed(2);
+        setChip('c_z',d.onchain.z<0?'suelo':d.onchain.z>3.5?'techo':'neutro');
+        pin('p_z',d.onchain.z,-0.5,4);
+      } else { $('v_z').textContent='—'; setChip('c_z','down'); }
+      if(d.onchain.nupl!=null){
+        const fases=[[0,'Capitulación'],[0.25,'Esperanza'],[0.5,'Optimismo'],[0.75,'Creencia/Ansiedad'],[1,'Euforia']];
+        let fase='Euforia';for(const [th,nm] of fases){if(d.onchain.nupl<th){fase=nm;break;}}
+        $('v_nupl').textContent=d.onchain.nupl.toFixed(2);
+        $('t_nupl').textContent='Fase: '+fase;
+        setChip('c_nupl',d.onchain.nupl<0?'suelo':d.onchain.nupl>0.75?'techo':'neutro');
+        pin('p_nupl',d.onchain.nupl,-0.2,0.85);
+      } else { $('v_nupl').textContent='—'; $('t_nupl').textContent=''; setChip('c_nupl','down'); }
+      if(d.onchain.realizedPrice!=null){
+        const dist=s.price?(s.price/d.onchain.realizedPrice-1)*100:null;
+        s.rpDist=dist;
+        $('v_rp').textContent='$'+fmt(d.onchain.realizedPrice);
+        $('t_rp').textContent=dist!=null?('Precio '+(dist>=0?'+':'')+dist.toFixed(1)+'% sobre el RP'):'';
+        setChip('c_rp',dist!=null&&dist<0?'suelo':'neutro');
+      } else { $('v_rp').textContent='—'; $('t_rp').textContent=''; setChip('c_rp','down'); }
+      if(d.onchain.puell!=null){
+        $('v_puell').textContent=d.onchain.puell.toFixed(2);
+        setChip('c_puell',d.onchain.puell<0.5?'suelo':d.onchain.puell>2.2?'techo':'neutro');
+        pin('p_puell',d.onchain.puell,0.3,2.5);
+      } else { $('v_puell').textContent='—'; setChip('c_puell','down'); }
       const crossUp=d.onchain.hashState==='cross',above=d.onchain.hashState!=='cap';
       $('v_hash').textContent=crossUp?'✚ CRUCE ALCISTA (señal)':above?'SMA30 > SMA60 · sana':'CAPITULACIÓN de mineros';
       setChip('c_hash',crossUp||!above?'suelo':'neutro');

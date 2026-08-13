@@ -61,29 +61,19 @@ async function getFutures(price) {
 }
 
 async function getCoinMetrics() {
-  const url =
+  // CapRealUSD y RevUSD quedaron detrás del plan pago de Coin Metrics — el resto
+  // sigue gratis. Se piden por separado para que un metric pago no tumbe los demás.
+  const free = "CapMrktCurUSD,HashRate,SplyCur";
+  const freeUrl =
     "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc" +
-    "&metrics=CapMrktCurUSD,CapRealUSD,HashRate,RevUSD,SplyCur&frequency=1d&start_time=2016-01-01&page_size=10000";
-  const j = await J(url);
+    `&metrics=${free}&frequency=1d&start_time=2016-01-01&page_size=10000`;
+  const j = await J(freeUrl);
   const d = j.data || [];
   if (!d.length) throw new Error("Coin Metrics: sin datos");
   const MC = d.map((r) => +r.CapMrktCurUSD);
-  const RC = d.map((r) => +r.CapRealUSD);
   const HR = d.map((r) => +r.HashRate);
-  const RV = d.map((r) => +r.RevUSD);
   const SP = d.map((r) => +r.SplyCur);
   const i = d.length - 1;
-
-  const mvrv = MC[i] / RC[i];
-  const nupl = (MC[i] - RC[i]) / MC[i];
-  const diffs = MC.map((m, k) => m - RC[k]);
-  const mean = MC.reduce((a, b) => a + b, 0) / MC.length;
-  const sd = Math.sqrt(MC.reduce((a, b) => a + (b - mean) ** 2, 0) / MC.length);
-  const z = diffs[i] / sd;
-  const realizedPrice = RC[i] / SP[i];
-
-  const s365 = sma(RV, 365);
-  const puell = RV[i] / s365;
 
   const h30 = sma(HR, 30), h60 = sma(HR, 60);
   const h30p = sma(HR, 30, i - 7), h60p = sma(HR, 60, i - 7);
@@ -91,7 +81,33 @@ async function getCoinMetrics() {
   const crossUp = above && h30p <= h60p;
   const hashState = crossUp ? "cross" : above ? "up" : "cap";
 
-  return { mvrv, z, nupl, realizedPrice, puell, hashState, hashrate: HR[i] };
+  const out = { hashState, hashrate: HR[i], mvrv: null, z: null, nupl: null, realizedPrice: null, puell: null, paywalled: [] };
+
+  try {
+    const paidUrl =
+      "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc" +
+      "&metrics=CapRealUSD,RevUSD&frequency=1d&start_time=2016-01-01&page_size=10000";
+    const jp = await J(paidUrl);
+    const dp = jp.data || [];
+    const RC = dp.map((r) => +r.CapRealUSD);
+    const RV = dp.map((r) => +r.RevUSD);
+    const ip = dp.length - 1;
+
+    out.mvrv = MC[i] / RC[ip];
+    out.nupl = (MC[i] - RC[ip]) / MC[i];
+    const diffs = MC.map((m, k) => m - RC[k]);
+    const mean = MC.reduce((a, b) => a + b, 0) / MC.length;
+    const sd = Math.sqrt(MC.reduce((a, b) => a + (b - mean) ** 2, 0) / MC.length);
+    out.z = diffs[ip] / sd;
+    out.realizedPrice = RC[ip] / SP[ip];
+
+    const s365 = sma(RV, 365);
+    out.puell = RV[ip] / s365;
+  } catch (e) {
+    out.paywalled = ["mvrv", "z", "nupl", "realizedPrice", "puell"];
+  }
+
+  return out;
 }
 
 async function getDeribit() {
@@ -147,6 +163,9 @@ module.exports = async function handler(req, res) {
   await safe("market", getBinance);
   await safe("futures", () => getFutures(out.market?.price));
   await safe("onchain", getCoinMetrics);
+  if (out.sources.onchain === "ok" && out.onchain?.paywalled?.length) {
+    out.sources.onchain = "parcial: MVRV/Z/NUPL/Realized Price/Puell requieren plan pago de Coin Metrics";
+  }
   await safe("derivs", getDeribit);
   await safe("fng", getFearGreed);
   await safe("macro", () => getFRED(process.env.FRED_API_KEY));
